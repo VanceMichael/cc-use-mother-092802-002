@@ -20,6 +20,25 @@
 
 `contracts/context.schema.json` 描述资料结构，`fixtures/context.json` 提供不含真实身份信息的示例，`src/mobility_context.py` 负责读取和校验这些资料。
 
+## 客流归集服务
+
+`src/` 下的 `flow_*` 模块构成完整的归集服务，`FlowAggregationService` 为统一入口：
+
+- `flow_models.py`：来源机构、统计口径、覆盖日期、原始批次、修订原因、发布版本等数据结构，数量统一换算为万人次，原始单位保留溯源
+- `flow_caliber.py`：口径树注册与校验——分项包含关系（公路=营业性客运+非营业性小客车）、单位换算（人数类单位拒绝混入）
+- `flow_metrics.py`：派生指标——分方式汇总、日均、假期总量、可比增幅（口径版本一致才可比）
+- `flow_service.py`：报送受理与发布流程
+- `flow_store.py`：内存/JSON 文件两种持久化，服务重启后由文件恢复
+
+关键行为：
+
+- 同一来源重复报送内容相同的批次不重复累计；编号相同而内容不同的批次先隔离，处理后才可纳入
+- 某一运输方式补报修订时只重算受影响的分项，重算轨迹可通过 `recompute_log()` 核对
+- 人工调整须由另一名人员复核（`propose_adjustment` / `review_adjustment`）后才参与汇总
+- 已发布版本不可变，更正通过 `publish_errata` 生成链接原版本的新版本，不原地覆盖
+- `explain(version_id)` 解释任一历史版本：采用了哪些批次、哪些数据仍待确认、与前一版公报的差异及原因
+- `plan_period` / `tick` / `recover` 负责截止期提醒与待发布任务，服务恢复后继续跟踪
+
 ## 开发命令
 
 运行测试：
